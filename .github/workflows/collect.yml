@@ -1,0 +1,43 @@
+# Saves a snapshot of Divvy's live station feed every 15 minutes.
+# GitHub may run scheduled jobs a few minutes late when its servers are busy;
+# the snapshot time recorded in the data is the real time it ran.
+name: Collect Divvy snapshot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:  # adds a "Run workflow" button for manual tests
+
+permissions:
+  contents: write  # lets the job commit the new data back to the repo
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Save snapshot
+        run: python collector/collect.py
+
+      - name: Commit data
+        run: |
+          git config user.name "divvy-collector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet && exit 0
+          git commit -m "Snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git pull --rebase && git push && exit 0
+            sleep 5
+          done
+          exit 1
