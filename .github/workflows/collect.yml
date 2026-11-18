@@ -1,24 +1,33 @@
 # Saves a snapshot of Divvy's live station feed every 15 minutes.
-# GitHub may run scheduled jobs a few minutes late when its servers are busy;
-# the snapshot time recorded in the data is the real time it ran.
+#
+# Why it loops instead of using a 15-minute cron:
+# GitHub says scheduled runs "can be delayed during periods of high loads" and
+# queued jobs "may be dropped". On Nov 17-18 the */15 schedule fired only twice
+# in 18 hours. So each run stays alive ~5.5 hours (jobs may run up to 6), takes a
+# snapshot every 15 minutes, then starts the next run itself. workflow_dispatch
+# events "always create workflow runs", even when sent with GITHUB_TOKEN.
+# The hourly schedule is only a backup that restarts the chain if it ever breaks.
+#
+# To stop collecting: Actions tab > Collect Divvy snapshot > "..." > Disable workflow.
 name: Collect Divvy snapshot
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch:  # adds a "Run workflow" button for manual tests
+    - cron: "7 * * * *"  # backup restart; minute 7 avoids the busy top of the hour
 
 permissions:
-  contents: write  # lets the job commit the new data back to the repo
+  contents: write  # commit the new data
+  actions: write   # start the next run in the chain
 
 concurrency:
-  group: collect
+  group: collect          # never two collectors at once; a new trigger waits its turn
   cancel-in-progress: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -26,18 +35,27 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Save snapshot
-        run: python collector/collect.py
-
-      - name: Commit data
+      - name: Snapshot every 15 minutes for about 5.5 hours
         run: |
           git config user.name "divvy-collector"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data
-          git diff --cached --quiet && exit 0
-          git commit -m "Snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
-          for i in 1 2 3; do
-            git pull --rebase && git push && exit 0
-            sleep 5
+          end=$(( $(date +%s) + 330 * 60 ))
+          while true; do
+            # One failed download should not end the loop.
+            python collector/collect.py || echo "::warning::snapshot failed at $(date -u +%H:%M)"
+            git add data
+            if ! git diff --cached --quiet; then
+              git commit -q -m "Snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+              for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done
+            fi
+            # Sleep to the next quarter hour (:00, :15, :30, :45 UTC).
+            now=$(date +%s); next=$(( (now / 900 + 1) * 900 ))
+            [ "$next" -ge "$end" ] && break
+            sleep $(( next - now ))
           done
-          exit 1
+
+      - name: Start the next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/actions/workflows/collect.yml/dispatches" -f ref=main
