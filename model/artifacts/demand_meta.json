@@ -1,0 +1,59 @@
+{
+  "trained_on_months": [
+    "202606",
+    "202607",
+    "202608",
+    "202609",
+    "202610"
+  ],
+  "test_start": "2026-10-18",
+  "test_end": "2026-10-31",
+  "features": [
+    "h",
+    "dow",
+    "weekend",
+    "holiday",
+    "temp_c",
+    "precip_mm",
+    "wind_kmh",
+    "dep_avg",
+    "arr_avg"
+  ],
+  "sklearn_version": "1.9.1",
+  "stations": 927,
+  "weather_used": true,
+  "results": [
+    {
+      "prediction": "Bikes leaving",
+      "stations": "all",
+      "model_MAE": 0.6168,
+      "habit_MAE": 0.6354,
+      "zero_MAE": 0.8084,
+      "model_vs_habit_%": 2.9
+    },
+    {
+      "prediction": "Bikes leaving",
+      "stations": "busy hours",
+      "model_MAE": 1.5287,
+      "habit_MAE": 1.5897,
+      "zero_MAE": 2.4587,
+      "model_vs_habit_%": 3.8
+    },
+    {
+      "prediction": "Bikes arriving",
+      "stations": "all",
+      "model_MAE": 0.5971,
+      "habit_MAE": 0.6178,
+      "zero_MAE": 0.7975,
+      "model_vs_habit_%": 3.3
+    },
+    {
+      "prediction": "Bikes arriving",
+      "stations": "busy hours",
+      "model_MAE": 1.491,
+      "habit_MAE": 1.5558,
+      "zero_MAE": 2.4571,
+      "model_vs_habit_%": 4.2
+    }
+  ]
+}
