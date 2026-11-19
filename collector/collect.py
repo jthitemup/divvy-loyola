@@ -74,6 +74,13 @@ def main():
     stamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     day = now.strftime("%Y-%m-%d")
 
+    # Skip if this minute was already saved. When one run hands off to the next,
+    # both can fire in the same minute; one copy is enough.
+    marker = f"{DATA_DIR}/last_snapshot.txt"
+    if os.path.exists(marker) and open(marker).read().strip() == stamp:
+        print(f"{stamp}: already saved, skipping")
+        return
+
     # 1. Every station's current bikes and docks.
     status = fetch("station_status")
     stations = status["data"]["stations"]
@@ -94,6 +101,9 @@ def main():
             w = csv.DictWriter(f, fieldnames=INFO_FIELDS, extrasaction="ignore")
             w.writeheader()
             w.writerows(info)
+
+    with open(marker, "w") as f:
+        f.write(stamp)
 
     empty = sum(1 for s in stations if s.get("is_renting") and s.get("num_bikes_available", 0) == 0)
     print(f"{stamp}: saved {len(stations)} stations ({empty} empty), {len(near)} dockless e-bikes near Loyola")
