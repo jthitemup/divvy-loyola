@@ -35,7 +35,7 @@ STATION_FIELDS = [
     "is_installed", "is_renting", "is_returning", "last_reported",
 ]
 FREE_BIKE_FIELDS = ["snapshot_utc", "lat", "lon", "is_reserved", "is_disabled"]
-INFO_FIELDS = ["station_id", "name", "lat", "lon", "capacity"]
+INFO_FIELDS = ["station_id", "short_name", "name", "lat", "lon", "capacity"]
 
 
 def fetch(name, tries=3):
